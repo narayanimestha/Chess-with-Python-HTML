@@ -1,5 +1,5 @@
 # Chess-with-Python-HTML
 ├── app.py
 ├── requirements.txt
-└── templates
+└── templates/
     └── index.html
