@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Python + HTML Chess Game</title>
+    <!-- jQuery, chessboard.js, and chess.js via CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f2f5;
+            margin-top: 30px;
+        }
+        #board {
+            width: 400px;
+            margin: 20px auto;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #status {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Python + HTML Chess Game</h1>
+    <div id="board"></div>
+    <div id="status">Status: Turn</div>
+    <br>
+    <button id="resetBtn">Reset Game</button>
+
+    <script>
+        var board = null;
+        var game = new Chess();
+
+        function updateStatus() {
+            var status = '';
+            var moveColor = (game.turn() === 'b') ? 'Black' : 'White';
+
+            if (game.in_checkmate()) {
+                status = 'Game over, ' + moveColor + ' is in checkmate.';
+            } else if (game.in_draw()) {
+                status = 'Game over, drawn position';
+            } else {
+                status = moveColor + "'s turn";
+                if (game.in_check()) {
+                    status += ', ' + moveColor + ' is in check';
+                }
+            }
+            $('#status').text(status);
+        }
+
+        function onDragStart (source, piece) {
+            if (game.game_over()) return false;
+            if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+        }
+
+        function onDrop (source, target) {
+            var move = source + target;
+            
+            $.ajax({
+                url: '/make_move',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ move: move }),
+                success: function(response) {
+                    game.load(response.fen);
+                    board.position(response.fen);
+                    updateStatus();
+                },
+                error: function(xhr) {
+                    alert(xhr.responseJSON.error || "Illegal move!");
+                    board.position(game.fen());
+                }
+            });
+        }
+
+        var config = {
+            draggable: true,
+            position: 'start',
+            onDragStart: onDragStart,
+            onDrop: onDrop
+        };
+        
+        board = Chessboard('board', config);
+
+        $('#resetBtn').on('click', function () {
+            $.ajax({
+                url: '/reset',
+                type: 'POST',
+                success: function() {
+                    game.reset();
+                    board.start();
+                    updateStatus();
+                }
+            });
+        });
+
+        $.get('/get_board', function(data) {
+            game.load(data.fen);
+            board.position(data.fen);
+            updateStatus();
+        });
+    </script>
+</body>
+</html>
